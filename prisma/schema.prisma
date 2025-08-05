@@ -1,0 +1,90 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+enum UserRole {
+  admin
+  user
+}
+
+model User {
+  id        String   @id @default(cuid())
+  name      String
+  email     String   @unique
+  password  String
+  role      UserRole @default(user)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  orders    Order[] // A user can have multiple orders
+}
+
+model Product {
+  id          String      @id @default(cuid())
+  name        String
+  description String?
+  // price       Decimal @db.Decimal(10, 2) // TODO: change when using a postgres database
+  price       Float
+  stock       Int         @default(0)
+  imageUrl    String?
+  createdAt   DateTime    @default(now())
+  updatedAt   DateTime    @updatedAt
+  orderitems  OrderItem[] // A product can be part of multiple order items
+}
+
+enum OrderStatus {
+  pending
+  processing
+  shipped
+  delivered
+  cancelled
+}
+
+model Order {
+  id                String        @id @default(cuid())
+  userId            String // Foreign key to User model
+  // totalAmount Decimal @db.Decimal(10, 2) // Total amount for the order // TODO: change when using a postgres database
+  totalAmount       Float // Total amount for the order
+  status            OrderStatus   @default(pending)
+  razorpayOrderId   String?       @unique // Razorpay order ID for payment
+  razorpayPaymentId String?       @unique // Razorpay payment ID for tracking
+  razorpaySignature String? // Razorpay signature for verification
+  paymentStatus     PaymentStatus @default(initiated) // Track the payment status
+  orderItems        OrderItem[] // A order can have multiple order items
+  createdAt         DateTime      @default(now())
+  updatedAt         DateTime      @updatedAt
+  user              User          @relation(fields: [userId], references: [id])
+}
+
+enum PaymentStatus {
+  initiated // Payment process started but not yet completed
+  authorized // Payment authorized by the customer's bank
+  captured // Payment successfully captured and processed
+  failed //  Payment failed for some reason
+  refunded // Payment has been refunded
+  pending // Payment is awaiting confirmation
+}
+
+model OrderItem {
+  id           String  @id @default(cuid())
+  orderId      String // Foreign key to Order model
+  productId    String // Foreign key to Product model
+  quantity     Int // Quantity of the product in the order
+  // priceAtOrder Decimal @db.Decimal(10, 2) // Price of the product at the time of order // TODO: change when using a postgres database
+  priceAtOrder Float // Price of the product at the time of order
+  order        Order   @relation(fields: [orderId], references: [id])
+  product      Product @relation(fields: [productId], references: [id])
+
+  // One order can have same product only once but quantity can be more than one. Also there can have multiple products in one order
+
+  // Ensure that one order can have the same product only once
+  @@unique([orderId, productId])
+}
