@@ -17,14 +17,27 @@ enum UserRole {
 }
 
 model User {
-  id        String   @id @default(cuid())
-  name      String
-  email     String   @unique
-  password  String
-  role      UserRole @default(user)
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-  orders    Order[] // A user can have multiple orders
+  id           String        @id @default(cuid())
+  name         String
+  email        String        @unique
+  password     String
+  role         UserRole      @default(user)
+  isVerified   Boolean       @default(false) // Indicates if the user has verified their email
+  createdAt    DateTime      @default(now())
+  updatedAt    DateTime      @updatedAt
+  orders       Order[] // A user can have multiple orders
+  Verification Verification?
+}
+
+model Verification {
+  id           String    @id @default(cuid())
+  userId       String    @unique
+  otp          String
+  otpExpiresAt DateTime
+  attempts     Int       @default(0)
+  lastSentAt   DateTime
+  lockedUntil  DateTime? // If attempts exceed limit
+  user         User      @relation(fields: [userId], references: [id])
 }
 
 model Product {
