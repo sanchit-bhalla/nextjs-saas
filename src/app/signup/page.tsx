@@ -64,7 +64,7 @@ export default function Signup() {
                     value={name}
                     onChange={handleChage}
                     placeholder="enter your name"
-                    // required
+                    required
                   />
                 </div>
                 <div className="grid gap-2">

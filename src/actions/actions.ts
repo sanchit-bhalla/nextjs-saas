@@ -3,10 +3,18 @@
 import { sendVerificationEmail } from "@/helpers/sendVerificationEmail";
 import { prisma } from "@/lib/db";
 import bcrypt from "bcryptjs";
+import { error } from "console";
+import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
+import {
+  BLOCKED_HOURS,
+  MAX_ATTEMPTS,
+  OTP_EXPIRATION_SECONDS,
+  USERID_COOKIE,
+} from "@/constants";
 
 export async function registerUser(
-  prevState: { error?: string; success?: string },
+  prevState: { error?: string },
   formData: FormData
 ) {
   const name = formData.get("name") as string;
@@ -65,16 +73,18 @@ export async function registerUser(
 
   // If entry exists in Verifivation tale, it means user has requested a code before
   if (existingVerificationCode) {
-    const { lastSentAt, attempts, lockedUntil } = existingVerificationCode;
+    const { lastSentAt, lockedUntil } = existingVerificationCode;
     if (lockedUntil && lockedUntil > now) {
-      return { error: "Too many attempts. Please try again after 24 hours." };
+      return {
+        error: `Too many attempts. Please try again after ${BLOCKED_HOURS} hours.`,
+      };
     }
 
     const secondsSinceLastAttempt =
       (now.getTime() - lastSentAt.getTime()) / 1000;
-    if (secondsSinceLastAttempt < 60) {
+    if (secondsSinceLastAttempt < OTP_EXPIRATION_SECONDS) {
       return {
-        error: `Please wait ${60 - Math.floor(secondsSinceLastAttempt)} seconds before requesting a new verification code.`,
+        error: `Please wait ${OTP_EXPIRATION_SECONDS - Math.floor(secondsSinceLastAttempt)} seconds before requesting a new verification code.`,
       };
     }
 
@@ -82,13 +92,8 @@ export async function registerUser(
       where: { userId: user.id },
       data: {
         otp: verificationCode,
-        otpExpiresAt: new Date(now.getTime() + 60 * 1000), // OTP expires in 60 seconds
-        attempts: attempts + 1,
+        otpExpiresAt: new Date(now.getTime() + OTP_EXPIRATION_SECONDS * 1000), // OTP expires in OTP_EXPIRATION_SECONDS seconds
         lastSentAt: now,
-        lockedUntil:
-          attempts + 1 >= 5
-            ? new Date(now.getTime() + 24 * 60 * 60 * 1000)
-            : null,
       },
     });
   } else {
@@ -97,12 +102,13 @@ export async function registerUser(
       data: {
         userId: user.id,
         otp: verificationCode,
-        otpExpiresAt: new Date(now.getTime() + 60 * 1000), // OTP expires in 60 seconds
+        otpExpiresAt: new Date(now.getTime() + OTP_EXPIRATION_SECONDS * 1000), // OTP expires in OTP_EXPIRATION_SECONDS seconds
         lastSentAt: now,
-        attempts: 1,
+        attempts: 0,
       },
     });
   }
+
   const emailResponse = await sendVerificationEmail(
     email,
     name,
@@ -113,10 +119,19 @@ export async function registerUser(
   }
   // return { success: "Verification email sent successfully" };
 
+  // set userId in session
+  const cookieStore = await cookies();
+  cookieStore.set(USERID_COOKIE, user.id, {
+    path: "/",
+    httpOnly: true, // Restricts the cookie to HTTP requests, preventing client-side access.
+    secure: process.env.NODE_ENV === "production", // Ensures the cookie is sent only over HTTPS connections in production
+  });
+
   return redirect("/otp");
 }
 
 export async function verifyOtp(userId: string, enteredOtp: string) {
+  // console.log({ userId, enteredOtp });
   const verification = await prisma.verification.findUnique({
     where: { userId },
   });
@@ -137,17 +152,27 @@ export async function verifyOtp(userId: string, enteredOtp: string) {
   }
 
   if (verification.otp != enteredOtp) {
+    const attemptsLeft = MAX_ATTEMPTS - (verification.attempts + 1);
+
     await prisma.verification.update({
       where: { userId },
       data: {
         attempts: verification.attempts + 1,
         lockedUntil:
-          verification.attempts + 1 >= 5
-            ? new Date(now.getTime() + 24 * 60 * 60 * 1000)
+          attemptsLeft <= 0
+            ? new Date(now.getTime() + BLOCKED_HOURS * 60 * 60 * 1000)
             : null,
       },
     });
-    return { error: "Invalid OTP. Please try again." };
+
+    return {
+      error:
+        attemptsLeft > 1
+          ? `Incorrect OTP. ${attemptsLeft} attempts left.`
+          : attemptsLeft === 1
+            ? "Last attempt remaining"
+            : "Account locked due to too many attempts. Try after 24 hours.",
+    };
   }
 
   // Way 1
@@ -173,5 +198,59 @@ export async function verifyOtp(userId: string, enteredOtp: string) {
     });
   });
 
+  // clear userId cookie so that user cannot access OTP page again by clicking back button
+  const cookieStore = await cookies();
+  cookieStore.delete(USERID_COOKIE);
+
   return redirect("/login");
+}
+
+export async function resendOtp() {
+  const cookieStore = await cookies();
+  const userId = cookieStore.get(USERID_COOKIE)?.value;
+  if (!userId) {
+    return redirect("/signup");
+  }
+
+  const user = await prisma.user.findUnique({
+    where: { id: userId },
+  });
+  if (!user) return { error: "Invalid user. " };
+
+  if (user.isVerified) return { error: "User already verified." };
+
+  const verification = await prisma.verification.findUnique({
+    where: { userId },
+  });
+  if (!verification) return redirect("/signup");
+
+  const now = new Date();
+  if (verification.lockedUntil && verification.lockedUntil > now) {
+    return {
+      error: `Too many requests. Please try again after ${BLOCKED_HOURS} hours.`,
+    };
+  }
+  const secondsSinceLastAttempt =
+    (now.getTime() - verification.lastSentAt.getTime()) / 1000;
+  if (secondsSinceLastAttempt < OTP_EXPIRATION_SECONDS) {
+    return {
+      error: `Please wait ${OTP_EXPIRATION_SECONDS - Math.floor(secondsSinceLastAttempt)} seconds before requesting a new verification code.`,
+    };
+  }
+
+  const verificationCode = Math.floor(
+    100000 + Math.random() * 900000
+  ).toString();
+
+  await prisma.verification.update({
+    where: { userId },
+    data: {
+      otp: verificationCode,
+      otpExpiresAt: new Date(now.getTime() + OTP_EXPIRATION_SECONDS * 1000),
+      lastSentAt: now,
+    },
+  });
+
+  await sendVerificationEmail(user.email, user.name, verificationCode);
+  return { success: "OTP sent successfully on your email" };
 }
