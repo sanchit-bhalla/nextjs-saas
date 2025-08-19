@@ -2,7 +2,9 @@
 
 import { resendOtp, verifyOtp } from "@/actions/actions";
 import { OTP_EXPIRATION_SECONDS, OTP_LENGTH } from "@/constants";
+import { useRouter } from "next/navigation";
 import { FormEvent, useEffect, useRef, useState } from "react";
+import { toast } from "sonner";
 
 interface OtpFormProps {
   userId: string;
@@ -23,6 +25,8 @@ export default function OtpForm({ userId }: OtpFormProps) {
   const [timer, setTimer] = useState(OTP_EXPIRATION_SECONDS);
 
   const inputRefs = useRef<(HTMLInputElement | null)[]>([]);
+
+  const router = useRouter();
 
   const handleChange = (
     e: React.ChangeEvent<HTMLInputElement>,
@@ -76,12 +80,18 @@ export default function OtpForm({ userId }: OtpFormProps) {
         return;
       }
 
-      const { error } = await verifyOtp(userId, otp.join(""));
+      const { error, success } = await verifyOtp(userId, otp.join(""));
       setOtp(Array(OTP_LENGTH).fill("")); // Clear OTP input after verification attempt
       if (error) {
         setStatus({ type: "error", message: error });
         return;
       }
+      setStatus({
+        type: "success",
+        message: success || "OTP verified successfully!",
+      });
+      toast(success || "OTP verified successfully!");
+      router.replace("/login"); // Redirect to login page after successful verification
     } catch (err) {
       if (err instanceof Error) {
         setStatus({ type: "error", message: err.message });

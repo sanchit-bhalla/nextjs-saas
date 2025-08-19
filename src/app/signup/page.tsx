@@ -14,7 +14,14 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import Link from "next/link";
-import { ChangeEvent, useActionState, useState } from "react";
+import {
+  ChangeEvent,
+  useActionState,
+  useEffect,
+  useRef,
+  useState,
+} from "react";
+import { toast } from "sonner";
 
 type FormState = {
   error?: string;
@@ -30,6 +37,7 @@ export default function Signup() {
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const lastErrorRef = useRef<string | undefined>(undefined);
 
   const handleChage = (e: ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;
@@ -41,6 +49,12 @@ export default function Signup() {
       setPassword(value);
     }
   };
+
+  useEffect(() => {
+    if (state.error && !isPending) {
+      toast.error(state.error);
+    }
+  }, [state.error, isPending]);
 
   return (
     <div className="bg-muted flex min-h-svh flex-col items-center justify-center gap-6 p-6 md:p-10">
@@ -93,12 +107,12 @@ export default function Signup() {
                 </div>
               </div>
             </CardContent>
-            <CardContent className="my-4">
+            {/* <CardContent className="my-4">
               {state.error && <p className="text-red-500">{state.error}</p>}
-              {/* {state.success && (
+              {state.success && (
                 <p className="text-green-500">{state.success}</p>
-              )} */}
-            </CardContent>
+              )}
+            </CardContent> */}
             <CardFooter className="flex-col gap-2 my-4">
               <Button
                 type="submit"

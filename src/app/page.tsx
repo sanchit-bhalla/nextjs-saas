@@ -1,8 +1,13 @@
 import Navbar from "@/components/Navbar";
+import { authOptions } from "@/lib/auth";
+import { getServerSession } from "next-auth";
 import Image from "next/image";
 import Link from "next/link";
 
-export default function Home() {
+export default async function Home() {
+  const session = await getServerSession(authOptions);
+  console.log("Server log:", { session });
+
   return (
     <main className="min-h-screen bg-gray-50 flex flex-col items-center justify-center px-4">
       {/* Navbar */}

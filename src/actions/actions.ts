@@ -3,7 +3,7 @@
 import { sendVerificationEmail } from "@/helpers/sendVerificationEmail";
 import { prisma } from "@/lib/db";
 import bcrypt from "bcryptjs";
-import { error } from "console";
+import { z } from "zod";
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 import {
@@ -12,6 +12,7 @@ import {
   OTP_EXPIRATION_SECONDS,
   USERID_COOKIE,
 } from "@/constants";
+import { Prisma } from "@prisma/client";
 
 export async function registerUser(
   prevState: { error?: string },
@@ -21,8 +22,19 @@ export async function registerUser(
   const email = formData.get("email") as string;
   const password = formData.get("password") as string;
 
-  if (!name || !email || !password) {
-    return { error: "All fields are required" };
+  // if (!name || !email || !password) {
+  //   return { error: "All fields are required" };
+  // }
+
+  const userSchema = z.object({
+    name: z.string().trim().min(1, "Name is required"),
+    email: z.email({ pattern: z.regexes.html5Email }), // the regex used by browsers to validate input[type=email] fields
+    password: z.string().min(5, "Password must be at least 5 characters long"),
+  });
+
+  const { error } = userSchema.safeParse({ name, email, password });
+  if (error) {
+    return { error: error?.issues[0].message };
   }
 
   let user;
@@ -187,7 +199,7 @@ export async function verifyOtp(userId: string, enteredOtp: string) {
   // ])
 
   // Way 2
-  await prisma.$transaction(async (tx) => {
+  await prisma.$transaction(async (tx: Prisma.TransactionClient) => {
     await tx.user.update({
       where: { id: userId },
       data: { isVerified: true },
@@ -202,7 +214,8 @@ export async function verifyOtp(userId: string, enteredOtp: string) {
   const cookieStore = await cookies();
   cookieStore.delete(USERID_COOKIE);
 
-  return redirect("/login");
+  // return redirect("/login");
+  return { success: "OTP verified successfully. You can now login." };
 }
 
 export async function resendOtp() {
