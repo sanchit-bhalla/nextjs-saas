@@ -27,6 +27,7 @@ model User {
   updatedAt    DateTime      @updatedAt
   orders       Order[] // A user can have multiple orders
   Verification Verification?
+  LoginAttempt LoginAttempt?
 }
 
 model Verification {
@@ -38,6 +39,15 @@ model Verification {
   lastSentAt   DateTime
   lockedUntil  DateTime? // If attempts exceed limit
   user         User      @relation(fields: [userId], references: [id])
+}
+
+model LoginAttempt {
+  id            String    @id @default(cuid())
+  userId        String    @unique
+  attempts      Int       @default(0)
+  lockedUntil   DateTime?
+  lastAttemptAt DateTime  @default(now())
+  user          User      @relation(fields: [userId], references: [id])
 }
 
 model Product {
