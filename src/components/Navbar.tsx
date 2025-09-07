@@ -21,6 +21,18 @@ function Navbar() {
         >
           Shop
         </Link>
+        <Link
+          href="/orders"
+          className="text-gray-700 hover:text-indigo-600 font-medium"
+        >
+          Orders
+        </Link>
+        <Link
+          href="/all-orders"
+          className="text-gray-700 hover:text-indigo-600 font-medium"
+        >
+          View all Orders
+        </Link>
       </div>
       <div>
         {isLoggedIn ? (

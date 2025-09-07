@@ -1,4 +1,3 @@
-import Navbar from "@/components/Navbar";
 import { authOptions } from "@/lib/auth";
 import { getServerSession } from "next-auth";
 import Image from "next/image";
@@ -11,7 +10,7 @@ export default async function Home() {
   return (
     <main className="min-h-screen bg-gray-50 flex flex-col items-center justify-center px-4">
       {/* Navbar */}
-      <Navbar />
+      {/* <Navbar /> */}
       <section className="max-w-2xl w-full text-center py-12">
         <h1 className="text-4xl font-bold mb-4 text-gray-800">Seth Traders</h1>
         <p className="text-lg text-gray-600 mb-8">
