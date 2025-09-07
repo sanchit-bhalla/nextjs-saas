@@ -19,7 +19,8 @@ export default withAuth(
         if (
           pathname.startsWith("/api/auth") ||
           pathname === "/login" ||
-          pathname === "/signup"
+          pathname === "/signup" ||
+          pathname === "/otp"
         ) {
           return !token;
         }
