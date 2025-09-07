@@ -12,6 +12,14 @@ export const checkAuthentication = async () => {
   return session.user;
 };
 
+export const getUser = async () => {
+  const session = await getServerSession(authOptions);
+  if (!session || !session.user) {
+    return null;
+  }
+  return session.user;
+};
+
 export const getLoggedInUserOrders = async () => {
   const user = await checkAuthentication();
 

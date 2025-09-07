@@ -1,8 +1,13 @@
+import { getUser } from "@/lib/server-utils";
 import Image from "next/image";
 import Link from "next/link";
+import UserAvatar from "./UserAvatar";
 
-function Navbar() {
-  const isLoggedIn = false; // Dummy authentication state for demonstration
+export default async function Navbar() {
+  const user = await getUser();
+  const isLoggedIn = !!user;
+  console.log({ user, isLoggedIn });
+
   return (
     <nav className="w-full flex items-center justify-between py-4 px-8 bg-white shadow mb-8">
       <div className="flex items-center gap-6">
@@ -21,27 +26,26 @@ function Navbar() {
         >
           Shop
         </Link>
-        <Link
-          href="/orders"
-          className="text-gray-700 hover:text-indigo-600 font-medium"
-        >
-          Orders
-        </Link>
-        <Link
-          href="/all-orders"
-          className="text-gray-700 hover:text-indigo-600 font-medium"
-        >
-          View all Orders
-        </Link>
+        {isLoggedIn && (
+          <Link
+            href="/orders"
+            className="text-gray-700 hover:text-indigo-600 font-medium"
+          >
+            Orders
+          </Link>
+        )}
+        {user?.role === "admin" && (
+          <Link
+            href="/all-orders"
+            className="text-gray-700 hover:text-indigo-600 font-medium"
+          >
+            View all Orders
+          </Link>
+        )}
       </div>
       <div>
         {isLoggedIn ? (
-          <Link
-            href="/logout"
-            className="text-indigo-600 hover:text-indigo-800 font-semibold"
-          >
-            Logout
-          </Link>
+          <UserAvatar />
         ) : (
           <Link
             href="/login"
@@ -54,5 +58,3 @@ function Navbar() {
     </nav>
   );
 }
-
-export default Navbar;
