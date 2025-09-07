@@ -9,7 +9,7 @@ export default withAuth(
     callbacks: {
       authorized: ({ token, req }) => {
         const { pathname } = req.nextUrl;
-        console.log({ pathname, token });
+        // console.log({ pathname, token });
         // Allow webhook endpoint
         if (pathname.startsWith("/api/webhook")) {
           return true;
