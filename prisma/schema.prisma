@@ -7,7 +7,7 @@ generator client {
 }
 
 datasource db {
-  provider = "sqlite"
+  provider = "postgresql"
   url      = env("DATABASE_URL")
 }
 
@@ -54,8 +54,8 @@ model Product {
   id          String      @id @default(cuid())
   name        String
   description String?
-  // price       Decimal @db.Decimal(10, 2) // TODO: change when using a postgres database
-  price       Float
+  price       Decimal     @db.Decimal(10, 2)
+  // price       Float
   stock       Int         @default(0)
   imageUrl    String?
   createdAt   DateTime    @default(now())
@@ -74,8 +74,8 @@ enum OrderStatus {
 model Order {
   id                String        @id @default(cuid())
   userId            String // Foreign key to User model
-  // totalAmount Decimal @db.Decimal(10, 2) // Total amount for the order // TODO: change when using a postgres database
-  totalAmount       Float // Total amount for the order
+  totalAmount       Decimal       @db.Decimal(10, 2)
+  // totalAmount       Float // Total amount for the order
   status            OrderStatus   @default(pending)
   razorpayOrderId   String?       @unique // Razorpay order ID for payment
   razorpayPaymentId String?       @unique // Razorpay payment ID for tracking
@@ -101,8 +101,8 @@ model OrderItem {
   orderId      String // Foreign key to Order model
   productId    String // Foreign key to Product model
   quantity     Int // Quantity of the product in the order
-  // priceAtOrder Decimal @db.Decimal(10, 2) // Price of the product at the time of order // TODO: change when using a postgres database
-  priceAtOrder Float // Price of the product at the time of order
+  priceAtOrder Decimal @db.Decimal(10, 2) // Price of the product at the time of order 
+  // priceAtOrder Float // Price of the product at the time of order
   order        Order   @relation(fields: [orderId], references: [id])
   product      Product @relation(fields: [productId], references: [id])
 
