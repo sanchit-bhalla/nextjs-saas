@@ -6,7 +6,7 @@ import { prisma } from "./db";
 
 export const checkAuthentication = async () => {
   const session = await getServerSession(authOptions);
-  if (!session || !session.user) {
+  if (!session || !session.user || session.error) {
     return redirect("/login");
   }
   return session.user;
@@ -14,7 +14,7 @@ export const checkAuthentication = async () => {
 
 export const getUser = async () => {
   const session = await getServerSession(authOptions);
-  if (!session || !session.user) {
+  if (!session || session.error || !session.user) {
     return null;
   }
   return session.user;

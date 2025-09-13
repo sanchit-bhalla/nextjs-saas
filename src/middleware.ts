@@ -22,7 +22,7 @@ export default withAuth(
           pathname === "/signup" ||
           pathname === "/otp"
         ) {
-          return !token;
+          return !token || !!token.error;
         }
 
         // Public routes
@@ -36,11 +36,11 @@ export default withAuth(
 
         // Admin routes require admin role
         if (pathname.startsWith("/all-orders")) {
-          return token?.role === "admin";
+          return token && !token.error && token.role === "admin" ? true : false;
         }
 
         // All other routes require authentication
-        return !!token;
+        return token && !token.error ? true : false;
       },
     },
     pages: {

@@ -4,14 +4,35 @@ import {
   MAX_LOGIN_ATTEMPTS,
 } from "@/constants";
 import { NextAuthOptions } from "next-auth";
+import GoogleProvider from "next-auth/providers/google";
 import CredentialsProvider from "next-auth/providers/credentials";
 import { z } from "zod";
 import { prisma } from "./db";
 import bcrypt from "bcryptjs";
 import { formatDate } from "./utils";
+import { JWT } from "next-auth/jwt";
+
+const getEmptyJWT = (errorMsg: string): JWT => ({
+  id: "",
+  name: "",
+  email: "",
+  role: "user", // or a sentinel like "unauthenticated"
+  error: errorMsg || "some error",
+});
 
 export const authOptions: NextAuthOptions = {
   providers: [
+    GoogleProvider({
+      clientId: process.env.GOOGLE_CLIENT_ID!,
+      clientSecret: process.env.GOOGLE_CLIENT_SECRET!,
+      authorization: {
+        params: {
+          prompt: "consent",
+          access_type: "offline",
+          response_type: "code",
+        },
+      },
+    }),
     CredentialsProvider({
       id: CREDENTIAL_PROVIDER_ID,
       name: "Seth Traders",
@@ -52,6 +73,10 @@ export const authOptions: NextAuthOptions = {
 
         if (!user) {
           throw new Error("User not found");
+        }
+
+        if (user.provider !== "credentials" || !user.password) {
+          throw new Error(`Please login with ${user.provider} account`);
         }
 
         if (!user.isVerified) {
@@ -134,22 +159,68 @@ export const authOptions: NextAuthOptions = {
     }),
   ],
   callbacks: {
-    async jwt({ token, user }) {
-      if (user) {
+    async jwt({ token, user, account, profile }) {
+      if (account?.provider === "google" && profile) {
+        if (!profile.email)
+          return getEmptyJWT("Email not present in Google profile");
+
+        const existingUser = await prisma.user.findUnique({
+          where: { email: profile.email },
+        });
+
+        if (!existingUser) {
+          const newUser = await prisma.user.create({
+            data: {
+              email: profile.email,
+              name: profile.name ?? "Google User",
+              password: null,
+              role: "user",
+              isVerified: true,
+              provider: "google",
+            },
+          });
+          token.id = newUser.id;
+          token.name = newUser.name;
+          token.email = newUser.email;
+          token.role = newUser.role;
+          token.error = "";
+        } else {
+          token.id = existingUser.id;
+          token.name = existingUser.name;
+          token.email = existingUser.email;
+          token.role = existingUser.role;
+          token.error = "";
+        }
+      }
+
+      // Only set token fields from `user` if they haven't already been set. Else in google provider case, they will be overwritten and role is set to null
+      if (user && !token.id) {
         token.id = user.id;
-        token.name = user.name as string;
+        token.name = user.name;
         token.email = user.email;
         token.role = user.role;
+        token.error = "";
       }
       return token;
     },
     async session({ session, token }) {
-      if (token) {
-        session.user.id = token.id as string;
-        session.user.name = token.name as string;
-        session.user.email = token.email as string;
-        session.user.role = token.role;
-      }
+      // if (token) {
+      //   session.user.id = token.id;
+      //   session.user.name = token.name;
+      //   session.user.email = token.email;
+      //   session.user.role = token.role;
+      //   session.user.isValid = token.error ? false : true;
+      // }
+      session.user = {
+        id: token.id,
+        name: token.name,
+        email: token.email,
+        image: session.user?.image ?? null, // preserve image if present
+        role: token.role,
+        isValid: token.error ? false : true,
+      };
+
+      session.error = token.error;
       return session;
     },
   },
