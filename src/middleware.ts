@@ -29,7 +29,10 @@ export default withAuth(
         if (
           pathname === "/" ||
           pathname.startsWith("/shop") ||
-          pathname.startsWith("/orders")
+          pathname.startsWith("/orders") ||
+          pathname.startsWith("/api/products") ||
+          pathname.startsWith("/products") ||
+          pathname.startsWith("/api/razorpay")
         ) {
           return true;
         }
